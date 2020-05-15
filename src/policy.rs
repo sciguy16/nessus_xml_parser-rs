@@ -156,7 +156,6 @@ impl PluginsPreferencesItem {
                 let mut selected_value: Option<&str> = None;
 
                 for child in node.children() {
-                    eprintln!("child: {:?}", child);
                     match child.tag_name().name() {
                         "pluginName" => {
                             plugin_name = child.text();
@@ -257,24 +256,109 @@ pub enum PluginStatus {
     Disabled,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PluginFamily {
     PortScanners,
 }
 
-pub type FamilySelection = Vec<FamilyItem>;
+impl FromStr for PluginFamily {
+    type Err = Error;
 
-#[derive(Debug)]
+    fn from_str(family: &str) -> Result<Self, Self::Err> {
+        use PluginFamily::*;
+        match family {
+            "portscanners" => Ok(PortScanners),
+            other => {
+                Err(Error::from(&format!("Invalid plugin family: {}", other)))
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FamilySelection(Vec<FamilyItem>);
+
+impl FamilySelection {
+    fn parse(node: &Node) -> Result<FamilySelection, Error> {
+        let mut family = Vec::new();
+        for child in node.children() {
+            if child.tag_name().name() == "FamilyItem" {
+                family.push(FamilyItem::parse(&child)?);
+            }
+        }
+
+        Ok(FamilySelection(family))
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct FamilyItem {
     name: String,
     status: FamilyStatus,
 }
 
-#[derive(Debug)]
+impl FamilyItem {
+    fn parse(node: &Node) -> Result<FamilyItem, Error> {
+        let mut name: Option<&str> = None;
+        let mut status: Option<FamilyStatus> = None;
+
+        for child in node.children() {
+            match child.tag_name().name() {
+                "FamilyName" => {
+                    name = child.text();
+                }
+                "Status" => {
+                    status = Some(
+                        child
+                            .text()
+                            .ok_or_else(|| {
+                                Error::from("expected value for status")
+                            })
+                            .and_then(|s| {
+                                s.parse::<FamilyStatus>().or_else(|_| {
+                                    Err(Error::from(
+                                        "failed to parse FamilyItem status",
+                                    ))
+                                })
+                            })?,
+                    );
+                }
+                _ => {}
+            }
+        }
+
+        let name =
+            name.ok_or_else(|| Error::from("expected family name section"))?;
+        let status = status
+            .ok_or_else(|| Error::from("expected family status section"))?;
+        Ok(FamilyItem {
+            name: name.to_string(),
+            status,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
 enum FamilyStatus {
     Enabled,
     Disabled,
     Partial,
+}
+
+impl FromStr for FamilyStatus {
+    type Err = Error;
+
+    fn from_str(family_status: &str) -> Result<Self, Self::Err> {
+        use FamilyStatus::*;
+        match family_status {
+            "enabled" => Ok(Enabled),
+            "disabled" => Ok(Disabled),
+            "partial" => Ok(Partial),
+            other => {
+                Err(Error::from(&format!("Invalid family status: {}", other)))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -343,5 +427,28 @@ mod test {
         ]);
 
         assert_eq!(server_prefs, correct);
+    }
+
+    #[test]
+    fn family_item() {
+        let xml = r#"
+<FamilySelection>
+	<FamilyItem>
+		<FamilyName>FTP</FamilyName>
+		<Status>enabled</Status>
+	</FamilyItem>
+</FamilySelection>
+    	"#;
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        eprintln!("ele: {:?}", ele);
+        let family = FamilySelection::parse(&ele).unwrap();
+
+        let correct = FamilySelection(vec![FamilyItem {
+            name: "FTP".to_string(),
+            status: FamilyStatus::Enabled,
+        }]);
+
+        assert_eq!(family, correct);
     }
 }
