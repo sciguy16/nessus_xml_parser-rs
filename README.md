@@ -1,4 +1,5 @@
 # nessus_xml_parser
+![Build](https://github.com/sciguy16/nessus_xml_parser-rs/workflows/Build/badge.svg?branch=master&event=push)
 Parse Nessus XML files for use in Rust projects
 
 # This crate is a work in progress, and is not yet functional
