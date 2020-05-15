@@ -15,7 +15,7 @@ pub struct Report {
 }
 
 impl Report {
-    pub fn from(report_xml: Node) -> Result<Self, Error> {
+    pub fn from(_report_xml: Node) -> Result<Self, Error> {
         Err(Error::from("hi"))
     }
 }

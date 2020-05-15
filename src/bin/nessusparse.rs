@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use nessus_xml_parser;
+//use nessus_xml_parser;
 
 fn main() {
     println!("Hello, world!");

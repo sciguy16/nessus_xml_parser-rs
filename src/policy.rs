@@ -21,7 +21,7 @@ pub struct Policy {
 }
 
 impl Policy {
-    pub fn from(policy_xml: Node) -> Result<Self, Error> {
+    pub fn from(_policy_xml: Node) -> Result<Self, Error> {
         Err(Error::from("hi"))
     }
 }
