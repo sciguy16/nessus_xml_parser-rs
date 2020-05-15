@@ -1,0 +1,19 @@
+[package]
+name = "nessus_xml_parser"
+version = "0.1.0"
+authors = ["David Young <david@thedavidyoung.co.uk>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sciguy16/nessus_xml_parser-rs"
+description = "Parse Nessus XML files into Rust datatypes and provide useful iterators"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "nessus_xml_parser"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nessusparse"
+
+[dependencies]
