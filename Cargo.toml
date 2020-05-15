@@ -17,3 +17,5 @@ path = "src/lib.rs"
 name = "nessusparse"
 
 [dependencies]
+roxmltree = "0.11"
+thiserror = "1.0"
