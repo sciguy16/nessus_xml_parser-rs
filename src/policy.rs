@@ -26,8 +26,74 @@ impl Policy {
     }
 }
 
-#[derive(Debug)]
-pub struct ServerPreferences {}
+#[derive(Debug, PartialEq)]
+struct ServerPreferences(Vec<ServerPreference>);
+
+impl ServerPreferences {
+    fn parse(node: &Node) -> Result<ServerPreferences, Error> {
+        match node.tag_name().name() {
+            "ServerPreferences" => {
+                let mut prefs = Vec::new();
+                for child in node.children() {
+                    if child.tag_name().name() == "preference" {
+                        // the only type of child for ServerPreferences
+                        // is preference
+                        prefs.push(ServerPreference::parse(&child)?);
+                    }
+                }
+
+                Ok(Self(prefs))
+            }
+            other => Err(Error::from(&format!(
+                "Invalid tag name `{}` for server preferences",
+                other
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ServerPreference {
+    name: String,
+    value: String,
+}
+
+impl ServerPreference {
+    fn parse(node: &Node) -> Result<ServerPreference, Error> {
+        match node.tag_name().name() {
+            "preference" => {
+                let mut name: Option<&str> = None;
+                let mut value: Option<&str> = None;
+
+                for child in node.children() {
+                    match child.tag_name().name() {
+                        "name" => {
+                            name = child.text();
+                        }
+                        "value" => {
+                            value = child.text();
+                        }
+                        _ => {}
+                    }
+                }
+
+                let name =
+                    name.ok_or_else(|| Error::from("expected name section"))?;
+                let value = value
+                    .ok_or_else(|| Error::from("expected value section"))?;
+
+                Ok(ServerPreference {
+                    name: name.to_string(),
+                    value: value.to_string(),
+                })
+            }
+            other => Err(Error::from(&format!(
+                "Invalid tag name `{}` for server preferences",
+                other
+            ))),
+        }
+    }
+}
 
 pub type PluginsPreferences = Vec<PluginsPreferencesItem>;
 
@@ -78,97 +144,109 @@ impl FromStr for PreferenceType {
 }
 
 impl PluginsPreferencesItem {
-    fn parse<'a>(node: &'a Node) -> Result<PluginsPreferencesItem, Error> {
-        if node.tag_name().name() != "item" {
-            Err(Error::from("No"))
-        } else {
-            let mut plugin_name: Option<&str> = None;
-            let mut id: Option<u32> = None;
-            let mut full_name: Option<&str> = None;
-            let mut preference_name: Option<&str> = None;
-            let mut preference_type: Option<PreferenceType> = None;
-            let mut values: Option<&str> = None;
-            let mut selected_value: Option<&str> = None;
+    fn parse(node: &Node) -> Result<PluginsPreferencesItem, Error> {
+        match node.tag_name().name() {
+            "item" => {
+                let mut plugin_name: Option<&str> = None;
+                let mut id: Option<u32> = None;
+                let mut full_name: Option<&str> = None;
+                let mut preference_name: Option<&str> = None;
+                let mut preference_type: Option<PreferenceType> = None;
+                let mut values: Option<&str> = None;
+                let mut selected_value: Option<&str> = None;
 
-            for child in node.children() {
-                eprintln!("child: {:?}", child);
-                match child.tag_name().name() {
-                    "pluginName" => {
-                        plugin_name = child.text();
-                    }
-                    "pluginId" => {
-                        id = Some(
-                            child
-                                .text()
-                                .ok_or_else(|| {
-                                    Error::from("expected value for pluginId")
-                                })
-                                .and_then(|s| {
-                                    s.parse::<u32>().or_else(|_| {
-                                        Err(Error::from(
-                                            "failed to parse pluginId",
-                                        ))
+                for child in node.children() {
+                    eprintln!("child: {:?}", child);
+                    match child.tag_name().name() {
+                        "pluginName" => {
+                            plugin_name = child.text();
+                        }
+                        "pluginId" => {
+                            id = Some(
+                                child
+                                    .text()
+                                    .ok_or_else(|| {
+                                        Error::from(
+                                            "expected value for pluginId",
+                                        )
                                     })
-                                })?,
-                        );
-                    }
-                    "fullName" => {
-                        full_name = child.text();
-                    }
-                    "preferenceName" => {
-                        preference_name = child.text();
-                    }
-                    "preferenceType" => {
-                        preference_type = Some(
-                            child
-                                .text()
-                                .ok_or_else(|| {
-                                    Error::from("expected value for pluginId")
-                                })
-                                .and_then(|s| {
-                                    s.parse::<PreferenceType>().or_else(|_| {
-                                        Err(Error::from(
-                                            "failed to parse pluginId",
-                                        ))
+                                    .and_then(|s| {
+                                        s.parse::<u32>().or_else(|_| {
+                                            Err(Error::from(
+                                                "failed to parse pluginId",
+                                            ))
+                                        })
+                                    })?,
+                            );
+                        }
+                        "fullName" => {
+                            full_name = child.text();
+                        }
+                        "preferenceName" => {
+                            preference_name = child.text();
+                        }
+                        "preferenceType" => {
+                            preference_type = Some(
+                                child
+                                    .text()
+                                    .ok_or_else(|| {
+                                        Error::from(
+                                            "expected value for pluginId",
+                                        )
                                     })
-                                })?,
-                        );
+                                    .and_then(|s| {
+                                        s.parse::<PreferenceType>().or_else(
+                                            |_| {
+                                                Err(Error::from(
+                                                    "failed to parse pluginId",
+                                                ))
+                                            },
+                                        )
+                                    })?,
+                            );
+                        }
+                        "preferenceValues" => {
+                            values = child.text();
+                        }
+                        "selectedValue" => {
+                            selected_value = child.text();
+                        }
+                        _ => {} // This captures Text from whitespace padding
                     }
-                    "preferenceValues" => {
-                        values = child.text();
-                    }
-                    "selectedValue" => {
-                        selected_value = child.text();
-                    }
-                    _ => {} // This captures Text from whitespace padding
                 }
-            }
-            let plugin_name = plugin_name
-                .ok_or_else(|| Error::from("expected plugin_name section"))?;
-            let id = id.ok_or_else(|| Error::from("expected id section"))?;
-            let full_name = full_name
-                .ok_or_else(|| Error::from("expected full_name section"))?;
-            let preference_name = preference_name.ok_or_else(|| {
-                Error::from("expected preference_name section")
-            })?;
-            let preference_type = preference_type.ok_or_else(|| {
-                Error::from("expected preference_type section")
-            })?;
-            let values =
-                values.ok_or_else(|| Error::from("expected values section"))?;
-            let selected_value = selected_value.ok_or_else(|| {
-                Error::from("expected selected_value section")
-            })?;
+                let plugin_name = plugin_name.ok_or_else(|| {
+                    Error::from("expected plugin_name section")
+                })?;
+                let id =
+                    id.ok_or_else(|| Error::from("expected id section"))?;
+                let full_name = full_name
+                    .ok_or_else(|| Error::from("expected full_name section"))?;
+                let preference_name = preference_name.ok_or_else(|| {
+                    Error::from("expected preference_name section")
+                })?;
+                let preference_type = preference_type.ok_or_else(|| {
+                    Error::from("expected preference_type section")
+                })?;
+                let values = values
+                    .ok_or_else(|| Error::from("expected values section"))?;
+                let selected_value = selected_value.ok_or_else(|| {
+                    Error::from("expected selected_value section")
+                })?;
 
-            Ok(PluginsPreferencesItem {
-                plugin_name: plugin_name.to_string(),
-                id,
-                full_name: full_name.to_string(),
-                preference_name: preference_name.to_string(),
-                preference_type,
-                values: values.to_string(),
-                selected_value: selected_value.to_string(),
-            })
+                Ok(PluginsPreferencesItem {
+                    plugin_name: plugin_name.to_string(),
+                    id,
+                    full_name: full_name.to_string(),
+                    preference_name: preference_name.to_string(),
+                    preference_type,
+                    values: values.to_string(),
+                    selected_value: selected_value.to_string(),
+                })
+            }
+            other => Err(Error::from(&format!(
+                "Invalid tag name `{}` for plugin preferences",
+                other
+            ))),
         }
     }
 }
@@ -232,5 +310,38 @@ mod test {
         assert_eq!(item.preference_type, PreferenceType::Entry);
         assert_eq!(item.values, "built-in");
         assert_eq!(item.selected_value, "built-in");
+    }
+
+    #[test]
+    fn server_preferences() {
+        let xml = r#"
+<ServerPreferences>
+	<preference>
+		<name>max_hosts</name>
+		<value>10</value>
+	</preference>
+	<preference>
+		<name>max_checks</name>
+		<value>3</value>
+	</preference>
+</ServerPreferences>
+"#;
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        eprintln!("ele: {:?}", ele);
+        let server_prefs = ServerPreferences::parse(&ele).unwrap();
+
+        let correct = ServerPreferences(vec![
+            ServerPreference {
+                name: "max_hosts".to_string(),
+                value: "10".to_string(),
+            },
+            ServerPreference {
+                name: "max_checks".to_string(),
+                value: "3".to_string(),
+            },
+        ]);
+
+        assert_eq!(server_prefs, correct);
     }
 }
