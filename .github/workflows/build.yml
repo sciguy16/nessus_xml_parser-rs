@@ -63,7 +63,7 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
- clippy:
+  clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
