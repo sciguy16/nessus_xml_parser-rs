@@ -54,21 +54,16 @@ jobs:
             --toolchain nightly-x86_64-unknown-linux-gnu
 
       - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo +nightly check
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo +nightly fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo +nightly clippy -- -D warnings
+
+      - name: Run unit tests
+        run: cargo +nightly test
 
   test:
     name: Run tests on ${{ matrix.os }}
