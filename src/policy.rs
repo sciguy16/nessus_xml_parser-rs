@@ -170,10 +170,10 @@ impl PluginsPreferencesItem {
                                         )
                                     })
                                     .and_then(|s| {
-                                        s.parse::<u32>().or_else(|_| {
-                                            Err(Error::from(
+                                        s.parse::<u32>().map_err(|_| {
+                                            Error::from(
                                                 "failed to parse pluginId",
-                                            ))
+                                            )
                                         })
                                     })?,
                             );
@@ -194,11 +194,11 @@ impl PluginsPreferencesItem {
                                         )
                                     })
                                     .and_then(|s| {
-                                        s.parse::<PreferenceType>().or_else(
+                                        s.parse::<PreferenceType>().map_err(
                                             |_| {
-                                                Err(Error::from(
+                                                Error::from(
                                                     "failed to parse pluginId",
-                                                ))
+                                                )
                                             },
                                         )
                                     })?,
@@ -315,10 +315,10 @@ impl FamilyItem {
                                 Error::from("expected value for status")
                             })
                             .and_then(|s| {
-                                s.parse::<FamilyStatus>().or_else(|_| {
-                                    Err(Error::from(
+                                s.parse::<FamilyStatus>().map_err(|_| {
+                                    Error::from(
                                         "failed to parse FamilyItem status",
-                                    ))
+                                    )
                                 })
                             })?,
                     );
