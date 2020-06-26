@@ -50,6 +50,8 @@ jobs:
         run: |
           rustup component add rustfmt \
             --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup component add clippy \
+            --toolchain nightly-x86_64-unknown-linux-gnu
 
       - name: Run cargo check
         uses: actions-rs/cargo@v1
