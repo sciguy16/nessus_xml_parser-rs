@@ -12,12 +12,12 @@ use std::str::FromStr;
 
 #[derive(Debug, Default)]
 pub struct Policy {
-    policy_name: String,
-    policy_comments: String,
-    server_preferences: ServerPreferences,
-    plugins_preferences: PluginsPreferences,
-    family_selection: FamilySelection,
-    individual_plugin_selection: IndividualPluginSelection,
+    pub policy_name: String,
+    pub policy_comments: String,
+    pub server_preferences: ServerPreferences,
+    pub plugins_preferences: PluginsPreferences,
+    pub family_selection: FamilySelection,
+    pub individual_plugin_selection: IndividualPluginSelection,
 }
 
 impl Policy {

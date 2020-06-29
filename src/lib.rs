@@ -78,13 +78,7 @@ impl NessusScan {
                         report = Some(Report::parse(&child)?);
                     }
                 }
-                other => {
-                    // There may not be any other nodes in the document
-                    return Err(Error::from(&format!(
-                        "Invalid node: {}",
-                        other
-                    )));
-                }
+                _ => {}
             }
         }
 
@@ -92,5 +86,63 @@ impl NessusScan {
             policy.ok_or_else(|| Error::from("expected Policy section"))?;
 
         Ok(NessusScan { policy, report })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn load_full_xml_format() {
+        let xml = r#"<?xml version="1.0" ?>
+<NessusClientData_v2>
+    <Policy>
+        <policyName>MyExamplePolicy</policyName>
+        <policyComments>Thisisanexamplepolicy</policyComments>
+        <Preferences>
+            <ServerPreferences>
+                <preference>
+                    <name>max_hosts</name>
+                    <value>30</value>
+                </preference>
+                <preference>
+                    <name>plugin_set</name>
+                    <value>123634;108478;84316;36080;126581;61117;46758;42271;65403;56011;</value>
+                </preference>
+            </ServerPreferences>
+            <PluginsPreferences>
+                <item>
+                    <pluginName>WebApplicationTestsSettings</pluginName>
+                    <pluginId>39471</pluginId>
+                    <fullName>WebApplicationTestsSettings[checkbox]:Enablewebapplic-ationstests</fullName>
+                    <preferenceName>Enablewebapplicationstests</preferenceName>
+                    <preferenceType>checkbox</preferenceType>
+                    <preferenceValues>no</preferenceValues>
+                    <selectedValue>no</selectedValue>
+                </item>
+            </PluginsPreferences>
+        </Preferences>
+        <FamilySelection>
+            <FamilyItem>
+                <FamilyName>WebServers</FamilyName>
+                <Status>disabled</Status>
+            </FamilyItem>
+        </FamilySelection>
+        <IndividualPluginSelection>
+            <PluginItem>
+                <PluginId>34220</PluginId>
+                <PluginName>netstatportscanner(WMI)</PluginName>
+                <Family>Portscanners</Family>
+                <Status>enabled</Status>
+            </PluginItem>
+        </IndividualPluginSelection>
+    </Policy>
+</NessusClientData_v2>
+        "#;
+
+        let nessus = NessusScan::parse(&xml).unwrap();
+
+        assert_eq!(nessus.policy().policy_name, "MyExamplePolicy");
     }
 }
