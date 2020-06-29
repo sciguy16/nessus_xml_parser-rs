@@ -9,6 +9,7 @@ use super::Error;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use roxmltree::Node;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -32,14 +33,66 @@ pub struct ReportHost {
     items: ReportItems,
 }
 
-pub type HostProperties = Vec<HostProperty>;
+impl ReportHost {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let name = node
+            .attribute("name")
+            .ok_or_else(|| {
+                Error::from("expected `name` attribute in `ReportHost` node")
+            })?
+            .to_string();
+
+        // Properties should only occur once, with child tags for the
+        // props. Items can occur any number of times
+        let mut properties = Default::default();
+        let mut items = ReportItems::new();
+
+        for child in node.children() {
+            match child.tag_name().name() {
+                "HostProperties" => properties = HostProperties::parse(&child)?,
+                "ReportItem" => items.push(ReportItem::parse(&child)?),
+                _ => {}
+            }
+        }
+
+        Ok(ReportHost {
+            name,
+            properties,
+            items,
+        })
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct HostProperties(HashMap<String, String>);
 pub type ReportItems = Vec<ReportItem>;
 
-//TODO maybe this should be a hashmap
-#[derive(Debug)]
-pub struct HostProperty {
-    name: String,
-    value: String,
+impl HostProperties {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let mut prop = HashMap::new();
+        for child in node.children() {
+            if child.tag_name().name() == "tag" {
+                prop.insert(
+                    child
+                        .attribute("name")
+                        .ok_or_else(|| {
+                            Error::from(
+                    "expected `name` attribute in `HostProperties tag` node")
+                        })?
+                        .to_string(),
+                    child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from(
+                    "expected value for `tag` in `HostProperties tag` node")
+                        })?
+                        .to_string(),
+                );
+            }
+        }
+
+        Ok(HostProperties(prop))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -231,7 +284,61 @@ mod test {
     use roxmltree::Document;
 
     #[test]
-    fn test_report_host() {}
+    fn test_report_host() {
+        let xml = r#"
+<ReportHost name="192.168.0.10">
+    <HostProperties>
+        <tag name="HOST_END">Wed Mar 09 22:55:00 2011</tag>
+        <tag name="operating-system">MicrosoftWindowsXPProfessional(English)</tag>
+        <tag name="mac-address">00:1e:8c:83:ad:5f</tag>
+        <tag name="netbios-name">ZESTY</tag>
+        <tag name="HOST_START">Wed Mar 09 22:48:10 2011</tag>
+    </HostProperties>
+    <ReportItem port="445" svc_name="cifs" protocol="tcp" severity="0" pluginID="10394" pluginName="Microsoft Windows SMB Log In Possible" pluginFamily="Windows">
+        <asset_inventory>True</asset_inventory>
+        <description>The remote host is running a Microsoft Windows operating system or Samba, a CIFS/SMB server for Unix. It was possible to log into it using one of the following accounts :
+
+- NULL session
+- Guest account
+- Supplied credentials</description>
+        <fname>smb_login.nasl</fname>
+        <plugin_modification_date>2020/03/09</plugin_modification_date>
+        <plugin_name>Microsoft Windows SMB Log In Possible</plugin_name>
+        <plugin_publication_date>2000/05/09</plugin_publication_date>
+        <plugin_type>remote</plugin_type>
+        <risk_factor>None</risk_factor>
+        <script_version>1.160</script_version>
+        <see_also>http://www.nessus.org/u?5c2589f6
+https://support.microsoft.com/en-us/help/246261</see_also>
+        <solution>n/a</solution>
+        <synopsis>It was possible to log into the remote host.</synopsis>
+        <plugin_output>- NULL sessions are enabled on the remote host.
+</plugin_output>
+    </ReportItem>
+    <ReportItem port="139" svc_name="smb" protocol="tcp" severity="0" pluginID="11011" pluginName="Microsoft Windows SMB Service Detection" pluginFamily="Windows">
+        <asset_inventory>True</asset_inventory>
+        <description>The remote service understands the CIFS (Common Internet File System) or Server Message Block (SMB) protocol, used to provide shared access to files, printers, etc between nodes on a network.</description>
+        <fname>cifs445.nasl</fname>
+        <os_identification>True</os_identification>
+        <plugin_modification_date>2020/01/22</plugin_modification_date>
+        <plugin_name>Microsoft Windows SMB Service Detection</plugin_name>
+        <plugin_publication_date>2002/06/05</plugin_publication_date>
+        <plugin_type>remote</plugin_type>
+        <risk_factor>None</risk_factor>
+        <script_version>1.41</script_version>
+        <solution>n/a</solution>
+        <synopsis>A file / print sharing service is listening on the remote host.</synopsis>
+        <plugin_output>
+An SMB server is running on this port.
+</plugin_output>
+    </ReportItem>
+</ReportHost>
+        "#;
+
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        let _report_host = ReportHost::parse(&ele).unwrap();
+    }
 
     #[test]
     fn test_report_item() {
@@ -366,6 +473,38 @@ See the section &apos;plugins options&apos; to configure it.</description>
 
             let doc = Document::parse(&xml).unwrap();
             let ele = doc.root_element();
-            let _report_item = ReportItem::parse(&ele);
+            let _report_item = ReportItem::parse(&ele).unwrap();
         }*/
+
+    #[test]
+    fn host_properties() {
+        let xml = r#"
+<HostProperties>
+    <tag name="HOST_END">Wed Mar 09 22:55:00 2011</tag>
+    <tag name="operating-system">MicrosoftWindowsXPProfessional(English)</tag>
+    <tag name="mac-address">00:1e:8c:83:ad:5f</tag>
+    <tag name="netbios-name">ZESTY</tag>
+    <tag name="HOST_START">Wed Mar 09 22:48:10 2011</tag>
+</HostProperties>
+        "#;
+
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        let host_properties = HostProperties::parse(&ele).unwrap();
+
+        let test_values = vec![
+            ("HOST_END", "Wed Mar 09 22:55:00 2011"),
+            (
+                "operating-system",
+                "MicrosoftWindowsXPProfessional(English)",
+            ),
+            ("mac-address", "00:1e:8c:83:ad:5f"),
+            ("netbios-name", "ZESTY"),
+            ("HOST_START", "Wed Mar 09 22:48:10 2011"),
+        ];
+
+        for (k, v) in test_values {
+            assert_eq!(host_properties.0.get(k).unwrap(), v);
+        }
+    }
 }
