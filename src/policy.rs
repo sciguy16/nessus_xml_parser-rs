@@ -6,12 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 #![allow(dead_code)]
 
-
 use super::Error;
 use roxmltree::Node;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Policy {
     policy_name: String,
     policy_comments: String,
@@ -21,13 +20,88 @@ pub struct Policy {
 }
 
 impl Policy {
-    pub fn from(_policy_xml: Node) -> Result<Self, Error> {
-        Err(Error::from("hi"))
+    pub fn from(policy_xml: Node) -> Result<Self, Error> {
+        let mut policy: Self = Default::default();
+        for child in policy_xml.children() {
+            eprintln!("child: {}", child.tag_name().name());
+            match child.tag_name().name() {
+                "policyName" => {
+                    policy.policy_name = child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from("expected value for policyName")
+                        })?
+                        .to_string()
+                }
+                "policyComments" => {
+                    policy.policy_comments = child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from("expected value for policyComments")
+                        })?
+                        .to_string()
+                }
+                "Preferences" => {
+                    let preferences = Preferences::parse(&child)?;
+                    policy.server_preferences = preferences.server_preferences;
+                    policy.plugins_preferences =
+                        preferences.plugins_preferences;
+                }
+                "FamilySelection" => {
+                    policy.family_selection = FamilySelection::parse(&child)?
+                }
+                "" => {}
+                other => {
+                    return Err(Error::from(&format!(
+                        "Invalid XML tag: {}",
+                        other
+                    )))
+                }
+            }
+        }
+
+        Ok(policy)
     }
 }
 
-#[derive(Debug, PartialEq)]
-struct ServerPreferences(Vec<ServerPreference>);
+#[derive(Debug, Default)]
+pub struct Preferences {
+    server_preferences: ServerPreferences,
+    plugins_preferences: PluginsPreferences,
+}
+
+impl Preferences {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let mut server_preferences = Default::default();
+        let mut plugins_preferences = Default::default();
+
+        for child in node.children() {
+            match child.tag_name().name() {
+                "ServerPreferences" => {
+                    server_preferences = ServerPreferences::parse(&child)?;
+                }
+                "PluginsPreferences" => {
+                    plugins_preferences = PluginsPreferences::parse(&child)?;
+                }
+                "" => {}
+                other => {
+                    return Err(Error::from(&format!(
+                        "Invalid preferences tag: {}",
+                        other
+                    )))
+                }
+            }
+        }
+
+        Ok(Self {
+            server_preferences,
+            plugins_preferences,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct ServerPreferences(Vec<ServerPreference>);
 
 impl ServerPreferences {
     fn parse(node: &Node) -> Result<ServerPreferences, Error> {
@@ -52,7 +126,7 @@ impl ServerPreferences {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct ServerPreference {
     name: String,
     value: String,
@@ -95,7 +169,23 @@ impl ServerPreference {
     }
 }
 
-pub type PluginsPreferences = Vec<PluginsPreferencesItem>;
+#[derive(Debug, Default, PartialEq)]
+pub struct PluginsPreferences(Vec<PluginsPreferencesItem>);
+
+impl PluginsPreferences {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let mut prefs = Vec::new();
+        for child in node.children() {
+            if child.tag_name().name() == "item" {
+                // the only type of child for ServerPreferences
+                // is preference
+                prefs.push(PluginsPreferencesItem::parse(&child)?);
+            }
+        }
+
+        Ok(Self(prefs))
+    }
+}
 
 #[derive(Debug)]
 pub struct PluginItem {
@@ -105,7 +195,7 @@ pub struct PluginItem {
     status: PluginStatus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PluginsPreferencesItem {
     plugin_name: String,
     id: u32,
@@ -275,7 +365,7 @@ impl FromStr for PluginFamily {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct FamilySelection(Vec<FamilyItem>);
 
 impl FamilySelection {
@@ -450,5 +540,74 @@ mod test {
         }]);
 
         assert_eq!(family, correct);
+    }
+
+    #[test]
+    fn full_policy_section() {
+        let xml = r#"
+<Policy>
+    <policyName>MyName</policyName>
+    <policyComments>MyComment</policyComments>
+    <Preferences>
+        <ServerPreferences>
+            <preference>
+                <name>max_simult_tcp_sessions</name>
+                <value>unlimited</value>
+            </preference>
+        </ServerPreferences>
+        <PluginsPreferences>
+            <item>
+                <pluginName>WebApplicationTestsSettings</pluginName>
+                <pluginId>39471</pluginId>
+                <fullName>WebApplicationTestsSettings[checkbox]:Enablewebapplicationstests</fullName>
+                <preferenceName>Enablewebapplicationstests</preferenceName>
+                <preferenceType>checkbox</preferenceType>
+                <preferenceValues>no</preferenceValues>
+                <selectedValue>no</selectedValue>
+            </item>
+        </PluginsPreferences>
+    </Preferences>
+    <FamilySelection>
+        <FamilyItem>
+            <FamilyName>MacOSXLocalSecurityChecks</FamilyName>
+            <Status>disabled</Status>
+        </FamilyItem>
+    </FamilySelection>
+</Policy>
+        "#;
+
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        let p = Policy::from(ele).unwrap();
+
+        assert_eq!(p.policy_name, "MyName");
+        assert_eq!(p.policy_comments, "MyComment");
+        assert_eq!(
+            p.server_preferences,
+            ServerPreferences(vec![ServerPreference {
+                name: "max_simult_tcp_sessions".to_string(),
+                value: "unlimited".to_string(),
+            }])
+        );
+        assert_eq!(
+            p.plugins_preferences,
+            PluginsPreferences(vec![PluginsPreferencesItem {
+                plugin_name: "WebApplicationTestsSettings".to_string(),
+                id: 39471,
+                full_name: "WebApplicationTestsSettings[checkbox]:Enablewebapplicationstests"
+                    .to_string(),
+                preference_name: "Enablewebapplicationstests".to_string(),
+                preference_type: PreferenceType::Checkbox,
+                values: "no".to_string(),
+                selected_value: "no".to_string()
+            }])
+        );
+        assert_eq!(
+            p.family_selection,
+            FamilySelection(vec![FamilyItem {
+                name: "MacOSXLocalSecurityChecks".to_string(),
+                status: FamilyStatus::Disabled
+            }])
+        );
     }
 }
