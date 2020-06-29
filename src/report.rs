@@ -143,7 +143,7 @@ impl ReportItem {
             })
             .and_then(|s| {
                 s.parse::<u16>()
-                    .or_else(|_| Err(Error::from("failed to parse `port`")))
+                    .map_err(|_| Error::from("failed to parse `port`"))
             })?;
 
         item.svc_name = node
@@ -164,7 +164,7 @@ impl ReportItem {
             })
             .and_then(|s| {
                 s.parse::<Protocol>()
-                    .or_else(|_| Err(Error::from("failed to parse `protocol`")))
+                    .map_err(|_| Error::from("failed to parse `protocol`"))
             })?;
 
         item.severity = node
@@ -176,7 +176,7 @@ impl ReportItem {
             })
             .and_then(|s| {
                 s.parse::<usize>()
-                    .or_else(|_| Err(Error::from("failed to parse `severity`")))
+                    .map_err(|_| Error::from("failed to parse `severity`"))
             })
             .and_then(|s| {
                 Severity::from_usize(s)
@@ -192,7 +192,7 @@ impl ReportItem {
             })
             .and_then(|s| {
                 s.parse::<usize>()
-                    .or_else(|_| Err(Error::from("failed to parse `pluginID`")))
+                    .map_err(|_| Error::from("failed to parse `pluginID`"))
             })?;
 
         item.plugin_name_attr = node
