@@ -17,6 +17,7 @@ pub struct Policy {
     server_preferences: ServerPreferences,
     plugins_preferences: PluginsPreferences,
     family_selection: FamilySelection,
+    individual_plugin_selection: IndividualPluginSelection,
 }
 
 impl Policy {
@@ -49,6 +50,10 @@ impl Policy {
                 }
                 "FamilySelection" => {
                     policy.family_selection = FamilySelection::parse(&child)?
+                }
+                "IndividualPluginSelection" => {
+                    policy.individual_plugin_selection =
+                        IndividualPluginSelection::parse(&child)?
                 }
                 "" => {}
                 other => {
@@ -187,12 +192,79 @@ impl PluginsPreferences {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct PluginItem {
     id: u32,
     name: String,
-    family: PluginFamily,
+    family: String,
     status: PluginStatus,
+}
+
+impl PluginItem {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let mut id = 0_u32;
+        let mut name = String::new();
+        let mut family = String::new();
+        let mut status: Option<PluginStatus> = None;
+
+        for child in node.children() {
+            match child.tag_name().name() {
+                "PluginId" => {
+                    id = child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from("expected value for id in PluginItem")
+                        })
+                        .and_then(|s| {
+                            s.parse::<u32>()
+                                .map_err(|_| Error::from("failed to parse id"))
+                        })?
+                }
+                "PluginName" => {
+                    name = child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from("Expected value for PluginItem name")
+                        })?
+                        .to_string()
+                }
+                "Family" => {
+                    family = child
+                        .text()
+                        .ok_or_else(|| {
+                            Error::from("Expected value for PluginItem family")
+                        })?
+                        .to_string()
+                }
+                "Status" => status = Some(PluginStatus::parse(&child)?),
+                _ => {}
+            }
+        }
+
+        let status =
+            status.ok_or_else(|| Error::from("Missing PluginStatus"))?;
+
+        Ok(Self {
+            id,
+            name,
+            family,
+            status,
+        })
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct IndividualPluginSelection(Vec<PluginItem>);
+impl IndividualPluginSelection {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        let mut items = Vec::new();
+        for child in node.children() {
+            if child.tag_name().name() == "PluginItem" {
+                items.push(PluginItem::parse(&child)?)
+            }
+        }
+        Ok(Self(items))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -340,26 +412,23 @@ impl PluginsPreferencesItem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PluginStatus {
     Enabled,
     Disabled,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum PluginFamily {
-    PortScanners,
-}
-
-impl FromStr for PluginFamily {
-    type Err = Error;
-
-    fn from_str(family: &str) -> Result<Self, Self::Err> {
-        use PluginFamily::*;
-        match family {
-            "portscanners" => Ok(PortScanners),
+impl PluginStatus {
+    fn parse(node: &Node) -> Result<Self, Error> {
+        use PluginStatus::*;
+        let status = node
+            .text()
+            .ok_or_else(|| Error::from("Expected value for PluginStatus"))?;
+        match status {
+            "enabled" => Ok(Enabled),
+            "disabled" => Ok(Disabled),
             other => {
-                Err(Error::from(&format!("Invalid plugin family: {}", other)))
+                Err(Error::from(&format!("Invalid plugin status: {}", other)))
             }
         }
     }
@@ -543,7 +612,7 @@ mod test {
     }
 
     #[test]
-    fn full_policy_section() {
+    fn policy_section() {
         let xml = r#"
 <Policy>
     <policyName>MyName</policyName>
@@ -609,5 +678,91 @@ mod test {
                 status: FamilyStatus::Disabled
             }])
         );
+    }
+
+    #[test]
+    fn full_policy_section() {
+        let xml = r#"
+<Policy>
+    <policyName>MyExamplePolicy</policyName>
+    <policyComments>Thisisanexamplepolicy</policyComments>
+    <Preferences>
+        <ServerPreferences>
+            <preference>
+                <name>max_hosts</name>
+                <value>30</value>
+            </preference>
+        </ServerPreferences>
+        <PluginsPreferences>
+            <item>
+                <pluginName>WebApplicationTestsSettings</pluginName>
+                <pluginId>39471</pluginId>
+                <fullName>WebApplicationTestsSettings[checkbox]:Enablewebapplic-ationstests</fullName>
+                <preferenceName>Enablewebapplicationstests</preferenceName>
+                <preferenceType>checkbox</preferenceType>
+                <preferenceValues>no</preferenceValues>
+                <selectedValue>no</selectedValue>
+            </item>
+        </PluginsPreferences>
+    </Preferences>
+    <FamilySelection>
+        <FamilyItem>
+            <FamilyName>WebServers</FamilyName>
+            <Status>disabled</Status>
+        </FamilyItem>
+    </FamilySelection>
+    <IndividualPluginSelection>
+        <PluginItem>
+            <PluginId>34220</PluginId>
+            <PluginName>netstatportscanner(WMI)</PluginName>
+            <Family>Portscanners</Family>
+            <Status>enabled</Status>
+        </PluginItem>
+    </IndividualPluginSelection>
+</Policy>
+        "#;
+
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        let p = Policy::from(ele).unwrap();
+
+        assert_eq!(p.policy_name, "MyExamplePolicy");
+        assert_eq!(p.policy_comments, "Thisisanexamplepolicy");
+        assert_eq!(
+            p.server_preferences,
+            ServerPreferences(vec![ServerPreference {
+                name: "max_hosts".to_string(),
+                value: "30".to_string()
+            }])
+        );
+        assert_eq!(
+            p.plugins_preferences,
+            PluginsPreferences(vec![PluginsPreferencesItem {
+                plugin_name: "WebApplicationTestsSettings".to_string(),
+                id: 39471,
+                full_name: "WebApplicationTestsSettings[checkbox]:Enablewebapplic-ationstests"
+                    .to_string(),
+                preference_name: "Enablewebapplicationstests".to_string(),
+                preference_type: PreferenceType::Checkbox,
+                values: "no".to_string(),
+                selected_value: "no".to_string()
+            }])
+        );
+        assert_eq!(
+            p.family_selection,
+            FamilySelection(vec![FamilyItem {
+                name: "WebServers".to_string(),
+                status: FamilyStatus::Disabled
+            }])
+        );
+        assert_eq!(
+            p.individual_plugin_selection,
+            IndividualPluginSelection(vec![PluginItem {
+                id: 34220,
+                name: "netstatportscanner(WMI)".to_string(),
+                family: "Portscanners".to_string(),
+                status: PluginStatus::Enabled
+            }])
+        )
     }
 }
