@@ -12,15 +12,28 @@ use roxmltree::Node;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Report {
-    description: String,
+    name: String,
     hosts: ReportHosts,
 }
 
 impl Report {
-    pub fn from(_report_xml: Node) -> Result<Self, Error> {
-        Err(Error::from("hi"))
+    pub fn parse(node: &Node) -> Result<Self, Error> {
+        let mut report: Report = Default::default();
+        report.name = node
+            .attribute("name")
+            .ok_or_else(|| {
+                Error::from("expected `name` attribute in `Report` node")
+            })?
+            .to_string();
+        for child in node.children() {
+            if child.tag_name().name() == "ReportHost" {
+                report.hosts.push(ReportHost::parse(&child)?);
+            }
+        }
+
+        Ok(report)
     }
 }
 
@@ -114,6 +127,9 @@ pub struct ReportItem {
     solution: Option<String>,
     synopsis: Option<String>,
     plugin_output: Option<String>,
+    description: Option<String>,
+    asset_inventory: Option<bool>,
+    os_identification: Option<bool>,
 }
 
 impl ReportItem {
@@ -229,6 +245,24 @@ impl ReportItem {
                 "plugin_output" => {
                     item.plugin_output = child.text().map(|s| s.to_string())
                 }
+                "description" => {
+                    item.description = child.text().map(|s| s.to_string())
+                }
+                "asset_inventory" => {
+                    item.asset_inventory = child
+                        .text()
+                        .map(|s| s.to_lowercase().parse::<bool>())
+                        .transpose()
+                        .map_err(|e| Error::from(&format!("{}", e)))?
+                }
+                "os_identification" => {
+                    item.os_identification = child
+                        .text()
+                        .map(|s| s.to_lowercase().parse::<bool>())
+                        .transpose()
+                        .map_err(|e| Error::from(&format!("{}", e)))?
+                }
+
                 _ => {}
             }
         }
@@ -506,5 +540,131 @@ See the section &apos;plugins options&apos; to configure it.</description>
         for (k, v) in test_values {
             assert_eq!(host_properties.0.get(k).unwrap(), v);
         }
+    }
+
+    #[test]
+    fn report() {
+        let xml = r#"
+<Report name="Router-Uncredentialed">
+    <ReportHost name="10.129.121.252">
+        <HostProperties>
+            <tag name="cpe-3">cpe:/a:mysql:mysql:5.5.9 -&gt; MySQL 5.5.9</tag>
+            <tag name="cpe-2">cpe:/a:mysql:mysql:5.5.9 -&gt; MySQL 5.5.9</tag>
+            <tag name="netbios-name">ECLIPSE</tag>
+            <tag name="cpe-1">cpe:/o:microsoft:windows_xp</tag>
+            <tag name="cpe-0">cpe:/o:microsoft:windows_2000</tag>
+            <tag name="HOST_END_TIMESTAMP">1593441583</tag>
+            <tag name="HOST_END">Mon Jun 29 14:39:43 2020</tag>
+            <tag name="host-ip">10.129.121.252</tag>
+            <tag name="HOST_START_TIMESTAMP">1593441445</tag>
+            <tag name="HOST_START">Mon Jun 29 14:37:25 2020</tag>
+        </HostProperties>
+        <ReportItem
+            port="445"
+            svc_name="cifs"
+            protocol="tcp"
+            severity="0"
+            pluginID="11011"
+            pluginName="Microsoft Windows SMB Service Detection"
+            pluginFamily="Windows"
+            >
+            <asset_inventory>True</asset_inventory>
+            <description>
+                The remote service understands the CIFS (Common Internet File
+                System) or Server Message Block (SMB) protocol, used to provide
+                shared access to files, printers, etc between nodes on a network.
+            </description>
+            <fname>cifs445.nasl</fname>
+            <os_identification>True</os_identification>
+            <plugin_modification_date>2020/01/22</plugin_modification_date>
+            <plugin_name>Microsoft Windows SMB Service Detection</plugin_name>
+            <plugin_publication_date>2002/06/05</plugin_publication_date>
+            <plugin_type>remote</plugin_type>
+            <risk_factor>None</risk_factor>
+            <script_version>1.41</script_version>
+            <solution>n/a</solution>
+            <synopsis>
+                A file / print sharing service is listening on the remote host.
+            </synopsis>
+            <plugin_output>
+                A CIFS server is running on this port.
+            </plugin_output>
+        </ReportItem>
+    </ReportHost>
+</Report>
+        "#;
+
+        let doc = Document::parse(&xml).unwrap();
+        let ele = doc.root_element();
+        let report = Report::parse(&ele).unwrap();
+
+        assert_eq!(report.name, "Router-Uncredentialed");
+
+        // there's only one host in this report, so grab it
+        assert_eq!(report.hosts.len(), 1);
+        let h = report.hosts.first().unwrap();
+
+        let test_values = vec![
+            ("cpe-3", "cpe:/a:mysql:mysql:5.5.9 -> MySQL 5.5.9"),
+            ("cpe-2", "cpe:/a:mysql:mysql:5.5.9 -> MySQL 5.5.9"),
+            ("netbios-name", "ECLIPSE"),
+            ("cpe-1", "cpe:/o:microsoft:windows_xp"),
+            ("cpe-0", "cpe:/o:microsoft:windows_2000"),
+            ("HOST_END_TIMESTAMP", "1593441583"),
+            ("HOST_END", "Mon Jun 29 14:39:43 2020"),
+            ("host-ip", "10.129.121.252"),
+            ("HOST_START_TIMESTAMP", "1593441445"),
+            ("HOST_START", "Mon Jun 29 14:37:25 2020"),
+        ];
+
+        for (k, v) in test_values {
+            assert_eq!(h.properties.0.get(k).unwrap(), v);
+        }
+
+        // one report item for this host
+        assert_eq!(h.items.len(), 1);
+        let r = &h.items.first().unwrap();
+        assert_eq!(r.svc_name, "cifs");
+        assert_eq!(r.protocol, Protocol::Tcp);
+        assert_eq!(r.severity, Severity::Informational);
+        assert_eq!(r.plugin_id, 11011);
+        assert_eq!(
+            r.plugin_name_attr,
+            "Microsoft Windows SMB Service Detection"
+        );
+        assert_eq!(r.plugin_family, "Windows");
+        assert_eq!(r.asset_inventory.unwrap(), true);
+        assert_eq!(
+            r.description.as_ref().unwrap(),
+            r#"
+                The remote service understands the CIFS (Common Internet File
+                System) or Server Message Block (SMB) protocol, used to provide
+                shared access to files, printers, etc between nodes on a network.
+            "#
+        );
+        assert_eq!(r.fname.as_ref().unwrap(), "cifs445.nasl");
+        assert_eq!(r.os_identification.unwrap(), true);
+        assert_eq!(r.plugin_modification_date.as_ref().unwrap(), "2020/01/22");
+        assert_eq!(
+            r.plugin_name.as_ref().unwrap(),
+            "Microsoft Windows SMB Service Detection"
+        );
+        assert_eq!(r.plugin_publication_date.as_ref().unwrap(), "2002/06/05");
+        assert_eq!(r.plugin_type.as_ref().unwrap(), "remote");
+        assert_eq!(r.risk_factor.as_ref().unwrap(), "None");
+        assert_eq!(r.script_version.as_ref().unwrap(), "1.41");
+        assert_eq!(r.solution.as_ref().unwrap(), "n/a");
+        assert_eq!(
+            r.synopsis.as_ref().unwrap(),
+            r#"
+                A file / print sharing service is listening on the remote host.
+            "#
+        );
+        assert_eq!(
+            r.plugin_output.as_ref().unwrap(),
+            r#"
+                A CIFS server is running on this port.
+            "#
+        );
     }
 }

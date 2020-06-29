@@ -72,10 +72,10 @@ impl NessusScan {
                 }
                 "Report" => {
                     if report.is_some() {
-                        // there may only be one Policy section
+                        // there may only be one Report section
                         return Err(Error::from("Too many Report sections"));
                     } else {
-                        report = Some(Report::from(child)?);
+                        report = Some(Report::parse(&child)?);
                     }
                 }
                 other => {
