@@ -19,3 +19,5 @@ name = "nessusparse"
 [dependencies]
 roxmltree = "0.13"
 thiserror = "1.0"
+num-derive = "0.3"
+num-traits = "0.2"
