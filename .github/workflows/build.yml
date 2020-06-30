@@ -41,6 +41,11 @@ jobs:
           command: clippy
           args: -- -D warnings
 
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps
+
   test:
     name: Run tests on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

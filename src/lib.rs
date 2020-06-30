@@ -4,20 +4,38 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+#![warn(missing_docs)]
 
-pub use crate::report::Port;
-pub use crate::report::ReportHost;
-use policy::Policy;
-use report::Report;
+//! This is a library for parsing Nessus XML files and providing iterators
+//! over the useful features. Currently, the whole XML file is read into
+//! appropriate data structures and iterators are provided over the hosts
+//! and ports.
+//!
+//!  ```rust,no_run
+//! # use nessus_xml_parser::NessusScan;
+//! let xml = r#"
+//! <?xml version="1.0" ?>
+//! <NessusClientData_v2>
+//! ...
+//! </NessusClientData_v2>
+//! "#;
+//! let nessus = NessusScan::parse(&xml).unwrap();
+//! ```
+
+pub use report::*;
+pub use policy::*;
 use roxmltree::Document;
 
 mod policy;
 mod report;
 
+/// Error types returned by this crate.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// General XML parsing errors
     #[error("error parsing file as XML document")]
     XmlError(#[from] roxmltree::Error),
+    /// Specific Nessus parsing errors
     #[error("error parsing Nessus XML output: {0}")]
     InvalidNessusOutput(String),
 }
@@ -36,21 +54,50 @@ impl From<&String> for Error {
     }
 }
 
+/// This struct holds the two sections of a Nessus XML file. Every XML
+/// file must have a single Policy section, and zero or one Report
+/// sections.
+///
+/// * The Policy section contains information about the scan settings,
+/// plugins used, etc.
+///
+/// * The Report section contains the results from having run a Nessus
+/// scan with the provided Policy
+///
+/// This crate provides iterators over the discovered hosts and ports.
 #[derive(Debug)]
 pub struct NessusScan {
+    /// The Policy section contains information about the scan settings,
+    /// plugins used, etc.
     policy: Policy,
+    /// The Report section contains the results from having run a Nessus
+    /// scan with the provided Policy
     report: Option<Report>,
 }
 
 impl NessusScan {
+    /// Returns the Policy section from a report
     pub fn policy(&self) -> &Policy {
         &self.policy
     }
 
+    /// Returns the Report section from a report
     pub fn report(&self) -> &Option<Report> {
         &self.report
     }
 
+    /// Attempt to parse an XML object as a Nessus report
+    ///
+    /// ```rust,no_run
+    /// # use nessus_xml_parser::NessusScan;
+    /// let xml = r#"
+    /// <?xml version="1.0" ?>
+    /// <NessusClientData_v2>
+    /// ...
+    /// </NessusClientData_v2>
+    /// "#;
+    /// let nessus = NessusScan::parse(&xml).unwrap();
+    /// ```
     pub fn parse(nessus_xml_str: &str) -> Result<Self, Error> {
         // Parse the input as XML
         let doc = Document::parse(&nessus_xml_str)?;
@@ -91,6 +138,20 @@ impl NessusScan {
     }
 
     /// Returns an interator over the hosts in the scan
+    ///
+    /// ```rust,no_run
+    /// # use nessus_xml_parser::NessusScan;
+    /// let xml = r#"
+    /// <?xml version="1.0" ?>
+    /// <NessusClientData_v2>
+    /// ...
+    /// </NessusClientData_v2>
+    /// "#;
+    /// let nessus = NessusScan::parse(&xml).unwrap();
+    /// for host in nessus.hosts() {
+    ///     println!("Hostname: {}", host);    
+    /// }
+    /// ```
     pub fn hosts(&self) -> std::slice::Iter<ReportHost> {
         if let Some(rep) = &self.report {
             return rep.hosts.iter();
@@ -98,6 +159,21 @@ impl NessusScan {
         [].iter()
     }
 
+    /// Returns an interator over the ports in the scan.
+    ///
+    /// ```rust,no_run
+    /// # use nessus_xml_parser::NessusScan;
+    /// let xml = r#"
+    /// <?xml version="1.0" ?>
+    /// <NessusClientData_v2>
+    /// ...
+    /// </NessusClientData_v2>
+    /// "#;
+    /// let nessus = NessusScan::parse(&xml).unwrap();
+    /// for (host, port) in nessus.ports() {
+    ///     println!("Hostname: {}, port: {}", host, port.id);    
+    /// }
+    /// ```
     pub fn ports(&self) -> std::vec::IntoIter<(&ReportHost, Port)> {
         let mut results = Vec::new();
         for host in self.hosts() {

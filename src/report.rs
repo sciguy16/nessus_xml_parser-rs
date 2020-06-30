@@ -12,13 +12,18 @@ use roxmltree::Node;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+/// The Report format. The report is broken down into a list of hosts,
+/// each of which has an associated list of findings.
 #[derive(Debug, Default)]
 pub struct Report {
+    /// Name of the report
     pub name: String,
+    /// Holds a Vec of [`ReportHost`]s
     pub hosts: ReportHosts,
 }
 
 impl Report {
+    /// Builds a Report object from an XML node
     pub fn parse(node: &Node) -> Result<Self, Error> {
         let mut report: Report = Default::default();
         report.name = node
@@ -37,16 +42,22 @@ impl Report {
     }
 }
 
+/// Type alias for ReportHosts
 pub type ReportHosts = Vec<ReportHost>;
 
+/// Container for the properties and findings for a particular host
 #[derive(Debug)]
 pub struct ReportHost {
+    /// Name of the host
     pub name: String,
+    /// Metadata about the host
     pub properties: HostProperties,
+    /// Findings for the host
     pub items: ReportItems,
 }
 
 impl ReportHost {
+    /// Builds a ReportHost object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let name = node
             .attribute("name")
@@ -76,6 +87,15 @@ impl ReportHost {
     }
 }
 
+impl std::fmt::Display for ReportHost {
+    fn fmt(
+        &self,
+        fmt: &mut std::fmt::Formatter<'_>,
+    ) -> Result<(), std::fmt::Error> {
+        write!(fmt, "{}", self.name)
+    }
+}
+
 impl PartialEq for ReportHost {
     fn eq(&self, rhs: &Self) -> bool {
         self.name.eq(&rhs.name)
@@ -99,11 +119,15 @@ impl Ord for ReportHost {
     }
 }
 
+/// Metadata about a host, stored as a hashmap
 #[derive(Debug, Default)]
 pub struct HostProperties(HashMap<String, String>);
+
+/// Type alias for ReportItems
 pub type ReportItems = Vec<ReportItem>;
 
 impl HostProperties {
+    /// Builds a HostProperties object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut prop = HashMap::new();
         for child in node.children() {
@@ -131,31 +155,57 @@ impl HostProperties {
     }
 }
 
+/// Struct for the data from a finding
 #[derive(Debug, Default)]
 pub struct ReportItem {
+    /// Port number. May be zero if the finding does not relate to a
+    /// port
     pub port: u16,
+    /// Name of the service running on the port, if known. May also be
+    /// a complete guess
     pub svc_name: String,
+    /// The protocol (e.g. TCP, UDP, ICMP)
     pub protocol: Protocol,
+    /// Severity of the finding
     pub severity: Severity,
+    /// ID of the plugin that produced the finding
     pub plugin_id: usize,
+    /// Name of the plugin, obtained from the XML tag attributes
     pub plugin_name_attr: String,
+    /// The family that the plugin belongs to
     pub plugin_family: String,
+    /// The filename of the plugin script
     pub fname: Option<String>,
+    /// Last modification date of the plugin. No promises are made about
+    /// the date format
     pub plugin_modification_date: Option<String>,
+    /// Name of the plugin from the XML child nodes. May or may not
+    /// match `plugin_name_attr`
     pub plugin_name: Option<String>,
+    /// Publication date of the plugin
     pub plugin_publication_date: Option<String>,
+    /// Type of plugin
     pub plugin_type: Option<String>,
+    /// Risk factor associated with the plugin
     pub risk_factor: Option<String>,
+    /// Version number of the plugin script
     pub script_version: Option<String>,
+    /// Remediation information
     pub solution: Option<String>,
+    /// Brief description of the vulnerability
     pub synopsis: Option<String>,
+    /// Raw output from the plugin script
     pub plugin_output: Option<String>,
+    /// Full text description of the vulnerability
     pub description: Option<String>,
+    /// asset inventory
     pub asset_inventory: Option<bool>,
+    /// Whether OS identification was performed
     pub os_identification: Option<bool>,
 }
 
 impl ReportItem {
+    /// Builds a ReportItem object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut item: ReportItem = Default::default();
 
@@ -294,6 +344,7 @@ impl ReportItem {
         Ok(item)
     }
 
+    /// Returns a [`Port`] object corresponding to the current finding
     pub fn port(&self) -> Port {
         Port {
             id: self.port,
@@ -303,11 +354,16 @@ impl ReportItem {
     }
 }
 
+/// The network protocols supported by Nessus
 #[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, PartialEq)]
 pub enum Protocol {
+    /// TCP
     Tcp,
+    /// UDP
     Udp,
+    /// ICMP
     Icmp,
+    /// SCTP
     Sctp,
 }
 
@@ -331,12 +387,18 @@ impl Default for Protocol {
     }
 }
 
+/// Severity ratings for findings
 #[derive(Debug, FromPrimitive, PartialEq)]
 pub enum Severity {
+    /// Informational
     Informational = 0,
+    /// Low severity
     Low = 1,
+    /// Medium severity
     Medium = 2,
+    /// High severity
     High = 3,
+    /// Critical severity
     Critical = 4,
 }
 
@@ -346,10 +408,14 @@ impl Default for Severity {
     }
 }
 
+/// Maps port number to protocol and service name
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Port {
+    /// Port number
     pub id: u16,
+    /// Protocol (TCP, UDP, etc.)
     pub protocol: Protocol,
+    /// Service name
     pub service: String,
 }
 

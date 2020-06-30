@@ -10,17 +10,26 @@ use super::Error;
 use roxmltree::Node;
 use std::str::FromStr;
 
+/// The policy used for the scan
 #[derive(Debug, Default)]
 pub struct Policy {
+    /// Name of the policy
     pub policy_name: String,
+    /// Any comments saved with the policy, may be empty
     pub policy_comments: String,
+    /// A [`ServerPreferences`] item, which is a Vec of key-value pairs
     pub server_preferences: ServerPreferences,
+    /// A [`PluginsPreferences`] item, which is a Vec of
+    /// [`PluginsPreferencesItem`]s
     pub plugins_preferences: PluginsPreferences,
+    /// A list of selected plugin families, as a Vec of [`FamilyItem`]s
     pub family_selection: FamilySelection,
+    /// A list of individually-selected plugins, as a Vec of [`PluginItem`]s
     pub individual_plugin_selection: IndividualPluginSelection,
 }
 
 impl Policy {
+    /// Build a Policy from an XML node
     pub fn from(policy_xml: Node) -> Result<Self, Error> {
         let mut policy: Self = Default::default();
         for child in policy_xml.children() {
@@ -68,6 +77,8 @@ impl Policy {
     }
 }
 
+/// Preferences struct, holding the ['ServerPreferences`] and
+/// [`PluginsPreferences`] for a scan run
 #[derive(Debug, Default)]
 pub struct Preferences {
     server_preferences: ServerPreferences,
@@ -75,6 +86,7 @@ pub struct Preferences {
 }
 
 impl Preferences {
+    /// Build a Preferences object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut server_preferences = Default::default();
         let mut plugins_preferences = Default::default();
@@ -104,10 +116,12 @@ impl Preferences {
     }
 }
 
+/// Holds a Vec of [`ServerPreference`] key-value pairs
 #[derive(Debug, PartialEq, Default)]
 pub struct ServerPreferences(Vec<ServerPreference>);
 
 impl ServerPreferences {
+    /// Build a ServerPreferences item from an XML node
     fn parse(node: &Node) -> Result<ServerPreferences, Error> {
         match node.tag_name().name() {
             "ServerPreferences" => {
@@ -130,6 +144,7 @@ impl ServerPreferences {
     }
 }
 
+/// Key-value pair for [`ServerPreferences`]
 #[derive(Debug, PartialEq, Default)]
 pub struct ServerPreference {
     name: String,
@@ -137,6 +152,7 @@ pub struct ServerPreference {
 }
 
 impl ServerPreference {
+    /// Build a ServerPreference object from an XML node
     fn parse(node: &Node) -> Result<ServerPreference, Error> {
         match node.tag_name().name() {
             "preference" => {
@@ -173,10 +189,12 @@ impl ServerPreference {
     }
 }
 
+/// Holds a Vec of [`PluginsPreferencesItem`]s
 #[derive(Debug, Default, PartialEq)]
 pub struct PluginsPreferences(Vec<PluginsPreferencesItem>);
 
 impl PluginsPreferences {
+    /// Builds a PluginsPreferences object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut prefs = Vec::new();
         for child in node.children() {
@@ -191,6 +209,7 @@ impl PluginsPreferences {
     }
 }
 
+/// Holds metadata about a particular plugin
 #[derive(Debug, PartialEq)]
 pub struct PluginItem {
     id: u32,
@@ -200,6 +219,7 @@ pub struct PluginItem {
 }
 
 impl PluginItem {
+    /// Builds a PluginItem object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut id = 0_u32;
         let mut name = String::new();
@@ -252,9 +272,12 @@ impl PluginItem {
     }
 }
 
+/// Holds a Vec of [`PluginItem`]s to specify which plugins are selected
 #[derive(Debug, Default, PartialEq)]
 pub struct IndividualPluginSelection(Vec<PluginItem>);
+
 impl IndividualPluginSelection {
+    /// Builds an IndividualPluginSelection object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         let mut items = Vec::new();
         for child in node.children() {
@@ -266,6 +289,7 @@ impl IndividualPluginSelection {
     }
 }
 
+/// Stores the value of a plugin preference
 #[derive(Debug, PartialEq)]
 pub struct PluginsPreferencesItem {
     plugin_name: String,
@@ -277,12 +301,18 @@ pub struct PluginsPreferencesItem {
     selected_value: String,
 }
 
+/// The possible data types for a preference entry
 #[derive(Debug, PartialEq)]
-enum PreferenceType {
+pub enum PreferenceType {
+    /// Preference is a regular text entry
     Entry,
+    /// Preference came from a radio button
     Radio,
+    /// Preference came from a checkbox
     Checkbox,
+    /// Preference came from a file
     File,
+    /// Preference is a password
     Password,
 }
 
@@ -305,6 +335,7 @@ impl FromStr for PreferenceType {
 }
 
 impl PluginsPreferencesItem {
+    /// Builds a PluginsPreferencesItem from an XML node
     fn parse(node: &Node) -> Result<PluginsPreferencesItem, Error> {
         match node.tag_name().name() {
             "item" => {
@@ -408,13 +439,17 @@ impl PluginsPreferencesItem {
     }
 }
 
+/// Possible status values for a plugin
 #[derive(Debug, PartialEq)]
 pub enum PluginStatus {
+    /// Plugin is enabled
     Enabled,
+    /// Plugin is disabled
     Disabled,
 }
 
 impl PluginStatus {
+    /// Builds a PluginStatus object from an XML node
     fn parse(node: &Node) -> Result<Self, Error> {
         use PluginStatus::*;
         let status = node
@@ -430,10 +465,13 @@ impl PluginStatus {
     }
 }
 
+/// Holds a Vec of [`FamilyItem`]s to record which plugin families are
+/// selected
 #[derive(Debug, PartialEq, Default)]
 pub struct FamilySelection(Vec<FamilyItem>);
 
 impl FamilySelection {
+    /// Builds a FamilySelection object from an XML node
     fn parse(node: &Node) -> Result<FamilySelection, Error> {
         let mut family = Vec::new();
         for child in node.children() {
@@ -446,6 +484,7 @@ impl FamilySelection {
     }
 }
 
+/// Holds the name and status information about a plugin family
 #[derive(Debug, PartialEq)]
 pub struct FamilyItem {
     name: String,
@@ -453,6 +492,7 @@ pub struct FamilyItem {
 }
 
 impl FamilyItem {
+    /// Builds a FamilyItem object from an XML node
     fn parse(node: &Node) -> Result<FamilyItem, Error> {
         let mut name: Option<&str> = None;
         let mut status: Option<FamilyStatus> = None;
@@ -494,6 +534,7 @@ impl FamilyItem {
     }
 }
 
+/// The possible statuses for a plugin family
 #[derive(Debug, PartialEq)]
 enum FamilyStatus {
     Enabled,
