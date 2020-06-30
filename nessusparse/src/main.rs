@@ -17,14 +17,13 @@ fn main() {
 
     let nessus = NessusScan::parse(&xml).unwrap();
 
-    for h in nessus.hosts() {
-    	println!("host: {}", h.name);
+    for (host, port) in nessus.ports() {
+        println!("host: {}, port: {:?}", host.name, port);
     }
 }
 
-
 #[derive(Clap)]
 struct Opts {
-	#[clap(short, long)]
-	file: String,
+    #[clap(short, long)]
+    file: String,
 }

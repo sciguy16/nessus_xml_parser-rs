@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+pub use crate::report::Port;
 pub use crate::report::ReportHost;
 use policy::Policy;
 use report::Report;
@@ -95,6 +96,22 @@ impl NessusScan {
             return rep.hosts.iter();
         }
         [].iter()
+    }
+
+    pub fn ports(&self) -> std::vec::IntoIter<(&ReportHost, Port)> {
+        let mut results = Vec::new();
+        for host in self.hosts() {
+            for item in &host.items {
+                if item.port != 0 {
+                    results.push((host, item.port()));
+                }
+            }
+        }
+
+        results.sort();
+        results.dedup();
+
+        results.into_iter()
     }
 }
 

@@ -76,6 +76,29 @@ impl ReportHost {
     }
 }
 
+impl PartialEq for ReportHost {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.name.eq(&rhs.name)
+    }
+}
+
+impl Eq for ReportHost {}
+
+impl PartialOrd for ReportHost {
+    fn partial_cmp(
+        &self,
+        rhs: &Self,
+    ) -> std::option::Option<std::cmp::Ordering> {
+        self.name.partial_cmp(&rhs.name)
+    }
+}
+
+impl Ord for ReportHost {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&rhs.name)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct HostProperties(HashMap<String, String>);
 pub type ReportItems = Vec<ReportItem>;
@@ -110,26 +133,26 @@ impl HostProperties {
 
 #[derive(Debug, Default)]
 pub struct ReportItem {
-    port: u16,
-    svc_name: String,
-    protocol: Protocol,
-    severity: Severity,
-    plugin_id: usize,
-    plugin_name_attr: String,
-    plugin_family: String,
-    fname: Option<String>,
-    plugin_modification_date: Option<String>,
-    plugin_name: Option<String>,
-    plugin_publication_date: Option<String>,
-    plugin_type: Option<String>,
-    risk_factor: Option<String>,
-    script_version: Option<String>,
-    solution: Option<String>,
-    synopsis: Option<String>,
-    plugin_output: Option<String>,
-    description: Option<String>,
-    asset_inventory: Option<bool>,
-    os_identification: Option<bool>,
+    pub port: u16,
+    pub svc_name: String,
+    pub protocol: Protocol,
+    pub severity: Severity,
+    pub plugin_id: usize,
+    pub plugin_name_attr: String,
+    pub plugin_family: String,
+    pub fname: Option<String>,
+    pub plugin_modification_date: Option<String>,
+    pub plugin_name: Option<String>,
+    pub plugin_publication_date: Option<String>,
+    pub plugin_type: Option<String>,
+    pub risk_factor: Option<String>,
+    pub script_version: Option<String>,
+    pub solution: Option<String>,
+    pub synopsis: Option<String>,
+    pub plugin_output: Option<String>,
+    pub description: Option<String>,
+    pub asset_inventory: Option<bool>,
+    pub os_identification: Option<bool>,
 }
 
 impl ReportItem {
@@ -270,9 +293,17 @@ impl ReportItem {
 
         Ok(item)
     }
+
+    pub fn port(&self) -> Port {
+        Port {
+            id: self.port,
+            protocol: self.protocol,
+            service: self.svc_name.clone(),
+        }
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialOrd, Ord, PartialEq)]
 pub enum Protocol {
     Tcp,
     Udp,
@@ -313,6 +344,13 @@ impl Default for Severity {
     fn default() -> Self {
         Severity::Informational
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Port {
+    pub id: u16,
+    pub protocol: Protocol,
+    pub service: String,
 }
 
 #[cfg(test)]
