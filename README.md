@@ -1,5 +1,8 @@
 # nessus_xml_parser
 ![Build](https://github.com/sciguy16/nessus_xml_parser-rs/workflows/Build/badge.svg?branch=master&event=push)
+![Documentation](https://docs.rs/nessus_xml_parser/badge.svg)
+
+
 Parse Nessus XML files for use in Rust projects. This has been tested on
 a small sample of Nessus files, however
 [the documentation](https://static.tenable.com/documentation/nessus_v2_file_format.pdf)
