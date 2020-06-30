@@ -388,11 +388,8 @@ impl PluginsPreferencesItem {
                 let preference_type = preference_type.ok_or_else(|| {
                     Error::from("expected preference_type section")
                 })?;
-                let values = values
-                    .ok_or_else(|| Error::from("expected values section"))?;
-                let selected_value = selected_value.ok_or_else(|| {
-                    Error::from("expected selected_value section")
-                })?;
+                let values = values.unwrap_or("");
+                let selected_value = selected_value.unwrap_or("");
 
                 Ok(PluginsPreferencesItem {
                     plugin_name: plugin_name.to_string(),
@@ -475,9 +472,10 @@ impl FamilyItem {
                             })
                             .and_then(|s| {
                                 s.parse::<FamilyStatus>().map_err(|_| {
-                                    Error::from(
-                                        "failed to parse FamilyItem status",
-                                    )
+                                    Error::from(&format!(
+                                        "failed to parse FamilyItem status: {}",
+                                        s
+                                    ))
                                 })
                             })?,
                     );
@@ -502,6 +500,7 @@ enum FamilyStatus {
     Enabled,
     Disabled,
     Partial,
+    Mixed,
 }
 
 impl FromStr for FamilyStatus {
@@ -513,6 +512,7 @@ impl FromStr for FamilyStatus {
             "enabled" => Ok(Enabled),
             "disabled" => Ok(Disabled),
             "partial" => Ok(Partial),
+            "mixed" => Ok(Mixed),
             other => {
                 Err(Error::from(&format!("Invalid family status: {}", other)))
             }

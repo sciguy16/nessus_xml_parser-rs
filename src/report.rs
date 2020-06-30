@@ -163,8 +163,9 @@ impl ReportItem {
                 )
             })
             .and_then(|s| {
-                s.parse::<Protocol>()
-                    .map_err(|_| Error::from("failed to parse `protocol`"))
+                s.parse::<Protocol>().map_err(|_| {
+                    Error::from(&format!("failed to parse `protocol`: {}", s))
+                })
             })?;
 
         item.severity = node
@@ -275,6 +276,7 @@ impl ReportItem {
 pub enum Protocol {
     Tcp,
     Udp,
+    Icmp,
     Sctp,
 }
 
@@ -285,6 +287,7 @@ impl FromStr for Protocol {
         match protocol {
             "tcp" => Ok(Tcp),
             "udp" => Ok(Udp),
+            "icmp" => Ok(Icmp),
             "sctp" => Ok(Sctp),
             other => Err(Error::from(&format!("Invalid protocol: {}", other))),
         }
