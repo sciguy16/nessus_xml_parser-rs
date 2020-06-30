@@ -1,11 +1,28 @@
 # nessus_xml_parser
 ![Build](https://github.com/sciguy16/nessus_xml_parser-rs/workflows/Build/badge.svg?branch=master&event=push)
-Parse Nessus XML files for use in Rust projects
+Parse Nessus XML files for use in Rust projects. This has been tested on
+a small sample of Nessus files, however
+[the documentation](https://static.tenable.com/documentation/nessus_v2_file_format.pdf)
+is full of typos and contradictions, so this may not work on all possible
+Nessus files.
+Please [report any issues](https://github.com/sciguy16/nessus_xml_parser-rs/issues)
+with minimal examples of files that aren't properly parsed.
 
-# This crate is a work in progress, and is not yet functional
 
 ## Usage example
-TODO
+```rust
+use nessus_xml_parser::NessusScan;
+let xml = r#"
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  ...
+</NessusClientData_v2>
+"#;
+let nessus = NessusScan::parse(&xml).unwrap();
+for host in nessus.hosts() {
+	println!("Hostname: {}", host.name);
+}
+```
 
 ## License
 
