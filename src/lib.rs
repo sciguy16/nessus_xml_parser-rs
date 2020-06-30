@@ -22,8 +22,8 @@
 //! let nessus = NessusScan::parse(&xml).unwrap();
 //! ```
 
-pub use report::*;
 pub use policy::*;
+pub use report::*;
 use roxmltree::Document;
 
 mod policy;
