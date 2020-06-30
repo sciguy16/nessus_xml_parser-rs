@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+pub use crate::report::ReportHost;
 use policy::Policy;
 use report::Report;
 use roxmltree::Document;
@@ -86,6 +87,14 @@ impl NessusScan {
             policy.ok_or_else(|| Error::from("expected Policy section"))?;
 
         Ok(NessusScan { policy, report })
+    }
+
+    /// Returns an interator over the hosts in the scan
+    pub fn hosts(&self) -> std::slice::Iter<ReportHost> {
+        if let Some(rep) = &self.report {
+            return rep.hosts.iter();
+        }
+        [].iter()
     }
 }
 

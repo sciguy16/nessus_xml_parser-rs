@@ -15,9 +15,11 @@ fn main() {
     let xml = read(opts.file).unwrap();
     let xml = String::from_utf8_lossy(&xml);
 
-    let nessus = NessusScan::parse(&xml);
+    let nessus = NessusScan::parse(&xml).unwrap();
 
-    println!("nessus: {:?}", nessus);
+    for h in nessus.hosts() {
+    	println!("host: {}", h.name);
+    }
 }
 
 

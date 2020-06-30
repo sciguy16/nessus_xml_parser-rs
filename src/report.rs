@@ -14,8 +14,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Default)]
 pub struct Report {
-    name: String,
-    hosts: ReportHosts,
+    pub name: String,
+    pub hosts: ReportHosts,
 }
 
 impl Report {
@@ -41,9 +41,9 @@ pub type ReportHosts = Vec<ReportHost>;
 
 #[derive(Debug)]
 pub struct ReportHost {
-    name: String,
-    properties: HostProperties,
-    items: ReportItems,
+    pub name: String,
+    pub properties: HostProperties,
+    pub items: ReportItems,
 }
 
 impl ReportHost {

@@ -24,7 +24,6 @@ impl Policy {
     pub fn from(policy_xml: Node) -> Result<Self, Error> {
         let mut policy: Self = Default::default();
         for child in policy_xml.children() {
-            eprintln!("child: {}", child.tag_name().name());
             match child.tag_name().name() {
                 "policyName" => {
                     policy.policy_name = child
