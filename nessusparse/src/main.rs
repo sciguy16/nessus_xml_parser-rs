@@ -5,8 +5,24 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//use nessus_xml_parser;
+use clap::Clap;
+use nessus_xml_parser::NessusScan;
+use std::fs::read;
 
 fn main() {
-    println!("Hello, world!");
+    let opts = Opts::parse();
+
+    let xml = read(opts.file).unwrap();
+    let xml = String::from_utf8_lossy(&xml);
+
+    let nessus = NessusScan::parse(&xml);
+
+    println!("nessus: {:?}", nessus);
+}
+
+
+#[derive(Clap)]
+struct Opts {
+	#[clap(short, long)]
+	file: String,
 }

@@ -13,9 +13,6 @@ description = "Parse Nessus XML files into Rust datatypes and provide useful ite
 name = "nessus_xml_parser"
 path = "src/lib.rs"
 
-[[bin]]
-name = "nessusparse"
-
 [dependencies]
 roxmltree = "0.13"
 thiserror = "1.0"
