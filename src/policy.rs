@@ -174,7 +174,7 @@ impl ServerPreference {
                 let name =
                     name.ok_or_else(|| Error::from("expected name section"))?;
                 let value = value
-                    .ok_or_else(|| Error::from("expected value section"))?;
+                    .unwrap_or("");
 
                 Ok(ServerPreference {
                     name: name.to_string(),
@@ -607,6 +607,10 @@ mod test {
 		<name>max_checks</name>
 		<value>3</value>
 	</preference>
+        <preference>
+            <name>scan_description</name>
+            <value></value>
+        </preference>
 </ServerPreferences>
 "#;
         let doc = Document::parse(&xml).unwrap();
@@ -622,6 +626,10 @@ mod test {
             ServerPreference {
                 name: "max_checks".to_string(),
                 value: "3".to_string(),
+            },
+            ServerPreference {
+                name: "scan_description".to_string(),
+                value: "".to_string(),
             },
         ]);
 
